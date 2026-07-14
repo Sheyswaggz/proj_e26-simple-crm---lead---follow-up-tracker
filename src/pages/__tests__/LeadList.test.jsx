@@ -1,6 +1,6 @@
 /**
  * Unit tests for LeadList component
- * Tests rendering, search filtering, sorting, overdue highlighting, empty states, and delete flow
+ * Tests rendering, search filtering, sorting, overdue highlighting, empty states, delete flow, and edit-from-list functionality
  * @module LeadList.test
  */
 
@@ -14,7 +14,8 @@ import { isOverdue, formatDate } from '../../lib/utils.js';
 // Mock the storage module
 vi.mock('../../lib/storage.js', () => ({
   getLeads: vi.fn(),
-  deleteLead: vi.fn()
+  deleteLead: vi.fn(),
+  updateLead: vi.fn()
 }));
 
 // Mock react-router-dom navigate
@@ -324,7 +325,7 @@ describe('LeadList', () => {
 
       // Find and click delete button for John Doe
       const deleteButtons = screen.getAllByLabelText(/delete/i);
-      const johnDeleteButton = deleteButtons.find(btn => btn.getAttribute('aria-label').includes('John Doe'));
+      const johnDeleteButton = deleteButtons.find(btn => btn.getAttribute('aria-label').includes('Delete lead'));
 
       fireEvent.click(johnDeleteButton);
 
@@ -369,36 +370,131 @@ describe('LeadList', () => {
 
       // Find and click view button for John Doe
       const viewButtons = screen.getAllByLabelText(/view/i);
-      const johnViewButton = viewButtons.find(btn => btn.getAttribute('aria-label').includes('John Doe'));
+      const johnViewButton = viewButtons.find(btn => btn.getAttribute('aria-label').includes('View lead'));
 
       fireEvent.click(johnViewButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/lead/lead-1');
     });
+  });
 
-    it('navigates to edit page on edit button click', () => {
+  describe('Edit From List', () => {
+    it('clicking Edit button opens LeadForm with initialData set to that lead', async () => {
       storage.getLeads.mockReturnValue(mockLeads);
 
       renderLeadList();
 
-      // Find and click edit button for Jane Smith
-      const editButtons = screen.getAllByLabelText(/edit/i);
-      const janeEditButton = editButtons.find(btn => btn.getAttribute('aria-label').includes('Jane Smith'));
+      // Find and click edit button (first one - for John Doe)
+      const editButtons = screen.getAllByLabelText('Edit lead');
+      const johnEditButton = editButtons[0];
 
-      fireEvent.click(janeEditButton);
+      fireEvent.click(johnEditButton);
 
-      expect(mockNavigate).toHaveBeenCalledWith('/lead/lead-2?edit=true');
+      // Wait for modal to appear
+      await waitFor(() => {
+        // Check that the modal title is "Edit Lead"
+        expect(screen.getByText('Edit Lead')).toBeInTheDocument();
+      });
+
+      // Verify the form is populated with John Doe's data
+      const nameInput = screen.getByLabelText('Name *');
+      expect(nameInput).toHaveValue('John Doe');
+
+      const companyInput = screen.getByLabelText('Company');
+      expect(companyInput).toHaveValue('Acme Corp');
+
+      const emailInput = screen.getByLabelText('Email');
+      expect(emailInput).toHaveValue('john@acme.com');
+
+      const phoneInput = screen.getByLabelText('Phone');
+      expect(phoneInput).toHaveValue('555-0101');
     });
 
-    it('navigates to add lead on Add Lead button click', () => {
+    it('saving edit calls updateLead and refreshes list', async () => {
+      storage.getLeads
+        .mockReturnValueOnce(mockLeads)
+        .mockReturnValueOnce([
+          {
+            ...mockLeads[0],
+            name: 'John Updated',
+            company: 'Updated Corp'
+          },
+          mockLeads[1],
+          mockLeads[2]
+        ]);
+
+      renderLeadList();
+
+      // Find and click edit button for John Doe
+      const editButtons = screen.getAllByLabelText('Edit lead');
+      const johnEditButton = editButtons[0];
+
+      fireEvent.click(johnEditButton);
+
+      // Wait for modal to appear
+      await waitFor(() => {
+        expect(screen.getByText('Edit Lead')).toBeInTheDocument();
+      });
+
+      // Update the name field
+      const nameInput = screen.getByLabelText('Name *');
+      fireEvent.change(nameInput, { target: { value: 'John Updated' } });
+
+      // Update the company field
+      const companyInput = screen.getByLabelText('Company');
+      fireEvent.change(companyInput, { target: { value: 'Updated Corp' } });
+
+      // Click Save button
+      const saveButton = screen.getByRole('button', { name: /save/i });
+      fireEvent.click(saveButton);
+
+      // Verify updateLead was called
+      await waitFor(() => {
+        expect(storage.updateLead).toHaveBeenCalled();
+      });
+
+      // Verify the updateLead was called with merged data
+      const updateCall = storage.updateLead.mock.calls[0][0];
+      expect(updateCall).toMatchObject({
+        id: 'lead-1',
+        name: 'John Updated',
+        company: 'Updated Corp'
+      });
+
+      // Verify getLeads was called again to refresh
+      await waitFor(() => {
+        expect(storage.getLeads).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('Edit button has aria-label="Edit lead"', () => {
       storage.getLeads.mockReturnValue(mockLeads);
 
       renderLeadList();
 
-      const addButton = screen.getByRole('button', { name: /add lead/i });
-      fireEvent.click(addButton);
+      const editButtons = screen.getAllByLabelText('Edit lead');
+      expect(editButtons.length).toBeGreaterThan(0);
+      expect(editButtons[0]).toHaveAttribute('aria-label', 'Edit lead');
+    });
 
-      expect(mockNavigate).toHaveBeenCalledWith('/?add=true');
+    it('Delete button has aria-label="Delete lead"', () => {
+      storage.getLeads.mockReturnValue(mockLeads);
+
+      renderLeadList();
+
+      const deleteButtons = screen.getAllByLabelText('Delete lead');
+      expect(deleteButtons.length).toBeGreaterThan(0);
+      expect(deleteButtons[0]).toHaveAttribute('aria-label', 'Delete lead');
+    });
+
+    it('View button has aria-label="View lead"', () => {
+      storage.getLeads.mockReturnValue(mockLeads);
+
+      renderLeadList();
+
+      const viewButtons = screen.getAllByLabelText('View lead');
+      expect(viewButtons.length).toBeGreaterThan(0);
+      expect(viewButtons[0]).toHaveAttribute('aria-label', 'View lead');
     });
   });
 
