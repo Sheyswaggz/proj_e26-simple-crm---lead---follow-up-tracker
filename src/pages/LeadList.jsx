@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getLeads, deleteLead, saveLead } from '../lib/storage.js';
+import { getLeads, deleteLead, saveLead, updateLead } from '../lib/storage.js';
 import { createLead } from '../lib/models.js';
 import { isOverdue, formatDate } from '../lib/utils.js';
 import { StatusBadge } from '../components/status-badge/StatusBadge.jsx';
@@ -44,6 +44,7 @@ export default function LeadList() {
   const [sortField, setSortField] = useState('dateAdded');
   const [sortDirection, setSortDirection] = useState('desc');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
 
   // Load leads from storage on mount
   useEffect(() => {
@@ -126,6 +127,18 @@ export default function LeadList() {
     saveLead(createLead(formData));
     setLeads(getLeads());
     setIsAddModalOpen(false);
+  };
+
+  /**
+   * Handles editing an existing lead
+   * Updates lead with merged data, saves to localStorage, and refreshes list
+   *
+   * @param {Object} formData - Form data from LeadForm component
+   */
+  const handleEditSave = (formData) => {
+    updateLead({ ...editingLead, ...formData });
+    setLeads(getLeads());
+    setEditingLead(null);
   };
 
   /**
@@ -344,7 +357,7 @@ export default function LeadList() {
                       <button
                         onClick={() => navigate(`/lead/${lead.id}`)}
                         className="text-blue-600 hover:text-blue-900 transition-colors p-1 rounded hover:bg-blue-50"
-                        aria-label={`View ${lead.name}`}
+                        aria-label="View lead"
                         title="View details"
                         type="button"
                       >
@@ -353,9 +366,9 @@ export default function LeadList() {
 
                       {/* Edit button */}
                       <button
-                        onClick={() => navigate(`/lead/${lead.id}?edit=true`)}
+                        onClick={() => setEditingLead(lead)}
                         className="text-gray-600 hover:text-gray-900 transition-colors p-1 rounded hover:bg-gray-50"
-                        aria-label={`Edit ${lead.name}`}
+                        aria-label="Edit lead"
                         title="Edit lead"
                         type="button"
                       >
@@ -366,7 +379,7 @@ export default function LeadList() {
                       <button
                         onClick={() => handleDelete(lead.id)}
                         className="text-red-600 hover:text-red-900 transition-colors p-1 rounded hover:bg-red-50"
-                        aria-label={`Delete ${lead.name}`}
+                        aria-label="Delete lead"
                         title="Delete lead"
                         type="button"
                       >
@@ -381,11 +394,19 @@ export default function LeadList() {
         </table>
       </div>
 
-      {/* Lead Form Modal */}
+      {/* Lead Form Modal - Add */}
       <LeadForm
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onSave={handleAddLead}
+      />
+
+      {/* Lead Form Modal - Edit */}
+      <LeadForm
+        isOpen={editingLead !== null}
+        onClose={() => setEditingLead(null)}
+        onSave={handleEditSave}
+        initialData={editingLead}
       />
     </div>
   );
