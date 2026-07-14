@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getLeadById, getFollowUpsByLeadId, updateLead } from '../lib/storage.js';
+import { getLeadById, getFollowUpsByLeadId, updateLead, deleteLead } from '../lib/storage.js';
 import { LEAD_STATUSES, FOLLOWUP_TYPES } from '../lib/models.js';
 import { isOverdue, formatDate } from '../lib/utils.js';
 import { StatusBadge } from '../components/status-badge/StatusBadge.jsx';
+import { LeadForm } from '../components/lead-form/LeadForm.jsx';
+import { FollowUpForm } from '../components/follow-up-form/FollowUpForm.jsx';
 import { ArrowLeft, Phone, Mail, Building2, Calendar, PhoneCall, Users, Pencil, Trash2, Clock } from 'lucide-react';
 
 /**
@@ -22,6 +24,7 @@ export default function LeadDetail() {
   const navigate = useNavigate();
   const [lead, setLead] = useState(null);
   const [followUps, setFollowUps] = useState([]);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Load lead and follow-ups on component mount and when id changes
   useEffect(() => {
@@ -99,6 +102,59 @@ export default function LeadDetail() {
     }
   };
 
+  /**
+   * Handles edit button click
+   * Opens the LeadForm modal in edit mode
+   */
+  const handleEditSave = (formData) => {
+    if (!lead) return;
+
+    // Update lead with new data
+    const updatedLead = updateLead({ ...lead, ...formData });
+
+    // Reload lead from storage to ensure consistency
+    const reloadedLead = getLeadById(id);
+    setLead(reloadedLead);
+
+    // Close modal
+    setIsEditModalOpen(false);
+  };
+
+  /**
+   * Handles delete button click
+   * Shows confirmation dialog and deletes lead if confirmed
+   */
+  const handleDelete = () => {
+    if (!lead) return;
+
+    const confirmed = window.confirm(
+      'Delete this lead and all follow-ups? This cannot be undone.'
+    );
+
+    if (confirmed) {
+      deleteLead(id);
+      navigate('/');
+    }
+  };
+
+  /**
+   * Handles follow-up form submission
+   * Reloads follow-ups and sorts by date descending
+   */
+  const handleFollowUpSave = () => {
+    // Reload follow-ups
+    const updated = getFollowUpsByLeadId(id);
+
+    // Sort by date descending (newest first)
+    const sorted = updated.sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateB - dateA;
+    });
+
+    setFollowUps(sorted);
+  };
+
   // Not found state
   if (lead === null) {
     return (
@@ -146,21 +202,21 @@ export default function LeadDetail() {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Edit button - placeholder for TASK-007 */}
+          {/* Edit button */}
           <button
             type="button"
+            onClick={() => setIsEditModalOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-            disabled
           >
             <Pencil className="w-4 h-4" />
             <span>Edit</span>
           </button>
 
-          {/* Delete button - placeholder for TASK-007 */}
+          {/* Delete button */}
           <button
             type="button"
+            onClick={handleDelete}
             className="inline-flex items-center gap-2 px-4 py-2 border border-red-300 rounded-lg text-red-700 bg-white hover:bg-red-50 transition-colors"
-            disabled
           >
             <Trash2 className="w-4 h-4" />
             <span>Delete</span>
@@ -290,6 +346,11 @@ export default function LeadDetail() {
               <h2 className="text-xl font-semibold text-gray-900">Follow-Up History</h2>
             </div>
 
+            {/* Follow-Up Form */}
+            <div className="mb-6">
+              <FollowUpForm leadId={id} onSave={handleFollowUpSave} />
+            </div>
+
             {followUps.length === 0 ? (
               <p className="text-sm text-gray-500 italic">No follow-ups logged yet</p>
             ) : (
@@ -325,6 +386,14 @@ export default function LeadDetail() {
           </div>
         </div>
       </div>
+
+      {/* Edit Lead Modal */}
+      <LeadForm
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={handleEditSave}
+        initialData={lead}
+      />
     </div>
   );
 }
