@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import { AppLayout } from './components/layout/AppLayout.jsx';
 
 function LeadList() {
   return (
@@ -20,19 +21,12 @@ function LeadDetail() {
 
 function App() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 bg-white border-b border-gray-200 z-10">
-        <div className="px-6 py-4">
-          <h1 className="text-xl font-semibold text-gray-800">Simple CRM</h1>
-        </div>
-      </header>
-      <main className="flex-1">
-        <Routes>
-          <Route path="/" element={<LeadList />} />
-          <Route path="/leads/:id" element={<LeadDetail />} />
-        </Routes>
-      </main>
-    </div>
+    <AppLayout>
+      <Routes>
+        <Route path="/" element={<LeadList />} />
+        <Route path="/leads/:id" element={<LeadDetail />} />
+      </Routes>
+    </AppLayout>
   );
 }
 
