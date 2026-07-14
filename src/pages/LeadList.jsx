@@ -5,10 +5,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getLeads, deleteLead } from '../lib/storage.js';
+import { getLeads, deleteLead, saveLead } from '../lib/storage.js';
+import { createLead } from '../lib/models.js';
 import { isOverdue, formatDate } from '../lib/utils.js';
 import { StatusBadge } from '../components/status-badge/StatusBadge.jsx';
 import { EmptyState } from '../components/empty-state/EmptyState.jsx';
+import { LeadForm } from '../components/lead-form/LeadForm.jsx';
 import {
   Users,
   Search,
@@ -41,6 +43,7 @@ export default function LeadList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState('dateAdded');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Load leads from storage on mount
   useEffect(() => {
@@ -114,6 +117,18 @@ export default function LeadList() {
   };
 
   /**
+   * Handles adding a new lead
+   * Creates lead from form data, saves to localStorage, and refreshes list
+   *
+   * @param {Object} formData - Form data from LeadForm component
+   */
+  const handleAddLead = (formData) => {
+    saveLead(createLead(formData));
+    setLeads(getLeads());
+    setIsAddModalOpen(false);
+  };
+
+  /**
    * Renders sort indicator icon for column headers
    *
    * @param {string} field - Field name to check
@@ -136,7 +151,7 @@ export default function LeadList() {
           icon={Users}
           title="No leads yet"
           subtitle="Add your first lead to get started"
-          onAction={() => navigate('/?add=true')}
+          onAction={() => setIsAddModalOpen(true)}
           actionLabel="Add Lead"
         />
       </div>
@@ -161,7 +176,7 @@ export default function LeadList() {
             />
           </div>
           <button
-            onClick={() => navigate('/?add=true')}
+            onClick={() => setIsAddModalOpen(true)}
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
             type="button"
           >
@@ -196,7 +211,7 @@ export default function LeadList() {
           />
         </div>
         <button
-          onClick={() => navigate('/?add=true')}
+          onClick={() => setIsAddModalOpen(true)}
           className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 whitespace-nowrap"
           type="button"
         >
@@ -365,6 +380,13 @@ export default function LeadList() {
           </tbody>
         </table>
       </div>
+
+      {/* Lead Form Modal */}
+      <LeadForm
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSave={handleAddLead}
+      />
     </div>
   );
 }
